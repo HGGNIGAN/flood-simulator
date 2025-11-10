@@ -10,32 +10,9 @@ from src.flood_simulator.simulator import demo_simulation
 
 # --- FILES AND PARAMETERS ---
 
-# Get project root directory (1 level up from this file)
+# Get project root directory (2 levels up from this file)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
-
-# Assumed directory structure:
-# /my_project/
-#   ┣ data/
-#   ┃   ┣ static/
-#   ┃   ┃   ┣ Hanoi_DEM_30m_UTM.tif
-#   ┃   ┃   ┣ Hanoi_n_roughness_30m_UTM.tif
-#   ┃   ┣ storm_generator/
-#   ┃   ┃   ┣ current_precip/
-#   ┃   ┃   ┃   ┣ precip_frame_0000.tif
-#   ┃   ┃   ┃   ┣ precip_frame_0001.tif
-#   ┃   ┃   ┃   ┣ ...
-#   ┃   ┃   ┣ total_1h/
-#   ┃   ┃   ┃   ┣ precip_frame_0000.tif
-#   ┃   ┃   ┃   ┣ ...
-#   ┃   ┃   ┣ total_2h/
-#   ┃   ┃   ┣ total_24h/
-#   ┃   ┣ simulation_output/
-#   ┃   ┃   ┣ (empty)
-#   ┃   ┣ lisflood_settings/
-#   ┃   ┃   ┣ (empty)
-#   ┣ src/
-#   ┃   ┣ main.py (this file)
 
 # Absolute path to data directory
 HOST_BASE_DATA_DIR = str(DATA_DIR.resolve())
@@ -118,7 +95,7 @@ def reclassify_flood_depth(raw_depth_file, classified_file, bins, nodata_val=-99
         print(f"Saved classification result: {classified_file}")
 
 
-# --- RUN MAIN PROGRAM ---
+# --- MAIN PROGRAM ---
 
 
 def main():

@@ -14,6 +14,7 @@ from rasterio.transform import from_bounds
 from noise import pnoise3
 from pathlib import Path
 from typing import Tuple, Optional
+import argparse
 
 # Get project root directory (2 levels up from this file)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -358,20 +359,66 @@ class StormGenerator:
 
 def main():
         # Create generator
-        generator = StormGenerator(
-                width=2546,
-                height=2979,
-                num_frames=100,
-                bounds=(
+        parser = argparse.ArgumentParser(
+                description="Generate synthetic storm GeoTIFFs (Perlin-noise based)."
+        )
+        parser.add_argument(
+                "--width", type=int, default=2546, help="Grid width in pixels"
+        )
+        parser.add_argument(
+                "--height", type=int, default=2979, help="Grid height in pixels"
+        )
+        parser.add_argument(
+                "--num-frames",
+                type=int,
+                default=100,
+                help="Number of frames to generate",
+        )
+        parser.add_argument(
+                "--bounds",
+                type=float,
+                nargs=4,
+                metavar=("WEST", "SOUTH", "EAST", "NORTH"),
+                default=[
                         529245.0790000000270084,
                         2274406.6759999999776483,
                         605625.0790000000270084,
                         2363776.6759999999776483,
-                ),
-                time_step_minutes=5,
-                output_dir=str(DATA_DIR / "storm_generator"),
-                pixel_size=30,
-                crs="EPSG:32648",
+                ],
+                help="Geographic bounds: WEST SOUTH EAST NORTH (units match CRS)",
+        )
+        parser.add_argument(
+                "--time-step-minutes",
+                type=int,
+                default=5,
+                help="Time between frames in minutes",
+        )
+        parser.add_argument(
+                "--output-dir",
+                default=str(DATA_DIR / "storm_generator"),
+                help="Base directory for output files",
+        )
+        parser.add_argument(
+                "--pixel-size",
+                type=float,
+                default=30.0,
+                help="Pixel size (same units as bounds)",
+        )
+        parser.add_argument(
+                "--crs", default="EPSG:32648", help="Coordinate reference system"
+        )
+
+        args = parser.parse_args()
+
+        generator = StormGenerator(
+                width=args.width,
+                height=args.height,
+                num_frames=args.num_frames,
+                bounds=tuple(args.bounds),
+                time_step_minutes=args.time_step_minutes,
+                output_dir=args.output_dir,
+                pixel_size=args.pixel_size,
+                crs=args.crs,
         )
 
         generator.generate_storm()
