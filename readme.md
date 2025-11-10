@@ -17,7 +17,6 @@ pip install numpy
 pip install rasterio
 pip install pandas
 pip install noise
-pip install noise
 ```
 
 **Details:**
