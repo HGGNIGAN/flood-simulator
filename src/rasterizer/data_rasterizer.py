@@ -9,6 +9,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 feature_files = [
         str(DATA_DIR / "static/Hanoi_DEM_30m_UTM.tif"),
+        str(DATA_DIR / "static/Hanoi_Slope_30m_UTM.tif"),
         str(DATA_DIR / "static/Hanoi_HAND_30m_UTM.tif"),
         str(DATA_DIR / "static/Hanoi_imperviousness_30m_UTM.tif"),
         str(DATA_DIR / "static/Hanoi_KSAT_30m_UTM.tif"),
@@ -19,6 +20,7 @@ feature_files = [
 
 features = [
         "DEM",
+        "Slope",
         "HAND",
         "imperviousness",
         "KSAT",
