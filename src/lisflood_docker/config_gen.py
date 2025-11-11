@@ -198,4 +198,4 @@ def generate_lisflood_settings(settings_file_path, container_paths, host_paths):
         tree = ET.ElementTree(root)
         ET.indent(tree, space="\t", level=0)  # Format for readability
         tree.write(settings_file_path, encoding="utf-8", xml_declaration=True)
-        print("    ✓ Successfully created settings file")
+        print("    Successfully created settings file")

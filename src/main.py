@@ -56,7 +56,7 @@ def get_storm_frames(precip_type="current_precip"):
                 return []
 
         # Find all .tif files in directory
-        pattern = os.path.join(storm_dir, "precip_frame_*.tif")
+        pattern = os.path.join(storm_dir, "total_*.tif")
         files = sorted(glob.glob(pattern))
 
         print(f"Found {len(files)} frames in {precip_type}")
@@ -109,7 +109,7 @@ def main():
         os.makedirs(HOST_BASE_PATHS["settings_dir"], exist_ok=True)
 
         # Select precipitation data type to use ("current_precip", "total_1h", "total_2h", "total_24h")
-        PRECIP_TYPE = "total_24h"
+        PRECIP_TYPE = "total_2h"
 
         # Get all frames from storm generator
         storm_frames = get_storm_frames(precip_type=PRECIP_TYPE)

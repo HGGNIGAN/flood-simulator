@@ -1,6 +1,6 @@
 import rasterio
 import numpy as np
-import pandas as pd
+import polars as pl
 from rasterio.transform import xy
 from pathlib import Path
 
@@ -55,7 +55,7 @@ def main():
         for name, arr in zip(features, feature_data):
                 data_dict[name] = arr.data.flatten()
 
-        df = pd.DataFrame(data_dict)
+        df = pl.DataFrame(data_dict)
 
         # Use mask from masked arrays instead of manual nodata checking
         # This handles NaN nodata, missing nodata metadata, and all edge cases
@@ -64,10 +64,10 @@ def main():
                 # Combine masks from all rasters - exclude any pixel that's masked in any layer
                 valid &= ~arr.mask.flatten()
 
-        df = df[valid]
+        df = df.filter(pl.Series(valid))
 
         out_csv = str(DATA_DIR / "feature_data.csv")
-        df.to_csv(out_csv, index=False)
+        df.write_csv(out_csv)
 
         print(f"Feature data saved to {out_csv}")
         for src in src_features:

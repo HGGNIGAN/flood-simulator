@@ -51,27 +51,27 @@ def run_lisflood_docker(
                 subprocess.run(
                         docker_command, check=True, capture_output=True, text=True
                 )
-                print("    ✓ LISFLOOD ran successfully.")
+                print("    LISFLOOD ran successfully.")
                 # Can add: print(result.stdout) to see full log
 
                 # Verify output file was created
                 expected_output = host_paths["output_raw"]
                 if not os.path.exists(expected_output):
                         print(
-                                f"    ⚠ WARNING: Output file {expected_output} was not created."
+                                f"    WARNING: Output file {expected_output} was not created."
                         )
                         return False
 
-                print(f"    ✓ Output file created: {os.path.basename(expected_output)}")
+                print(f"    Output file created: {os.path.basename(expected_output)}")
                 return True
 
         except subprocess.CalledProcessError as e:
-                print(f"    ❌ ERROR RUNNING DOCKER (Exit Code: {e.returncode})")
+                print(f"    ERROR RUNNING DOCKER (Exit Code: {e.returncode})")
                 print(f"    STDERR:\n{e.stderr}")
                 return False
         except FileNotFoundError:
-                print("    ❌ ERROR: 'docker' not installed.")
+                print("    ERROR: 'docker' not installed.")
                 return False
         except Exception as e:
-                print(f"    ❌ Unexpected ERROR: {e}")
+                print(f"    ERROR: Unexpected error: {e}")
                 return False
