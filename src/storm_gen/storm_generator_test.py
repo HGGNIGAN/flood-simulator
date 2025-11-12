@@ -29,10 +29,10 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 # Input/Output directories
 INPUT_TIF = DATA_DIR / "static" / "Hanoi_LULC_30m_UTM.tif"  # Master raster file
-OUTPUT_DIR_CURRENT = DATA_DIR / "storm_generator" / "current_precip"
-OUTPUT_DIR_1H = DATA_DIR / "storm_generator" / "total_1h"
-OUTPUT_DIR_2H = DATA_DIR / "storm_generator" / "total_2h"
-OUTPUT_DIR_24H = DATA_DIR / "storm_generator" / "total_24h"
+OUTPUT_DIR_CURRENT = DATA_DIR / "storm_generator_test" / "current_precip"
+OUTPUT_DIR_1H = DATA_DIR / "storm_generator_test" / "total_1h"
+OUTPUT_DIR_2H = DATA_DIR / "storm_generator_test" / "total_2h"
+OUTPUT_DIR_24H = DATA_DIR / "storm_generator_test" / "total_24h"
 
 
 # --- HELPER FUNCTIONS ---
@@ -171,7 +171,7 @@ def run_simulation():
                         np.sum(history_array[-frames_per_hour:], axis=0) * time_fraction
                 )
                 save_geotiff(
-                        os.path.join(OUTPUT_DIR_1H, f"total_1h_{t:02d}.tif"),
+                        os.path.join(OUTPUT_DIR_1H, f"total_1h_frame_{t:04d}.tif"),
                         total_1h,
                         transform,
                         crs,
@@ -183,7 +183,7 @@ def run_simulation():
                         * time_fraction
                 )
                 save_geotiff(
-                        os.path.join(OUTPUT_DIR_2H, f"total_2h_{t:02d}.tif"),
+                        os.path.join(OUTPUT_DIR_2H, f"total_2h_frame_{t:04d}.tif"),
                         total_2h,
                         transform,
                         crs,
@@ -192,7 +192,7 @@ def run_simulation():
                 # 24-Hour Total (always calculated from all available history up to the max)
                 total_24h = np.sum(history_array, axis=0) * time_fraction
                 save_geotiff(
-                        os.path.join(OUTPUT_DIR_24H, f"total_24h_{t:02d}.tif"),
+                        os.path.join(OUTPUT_DIR_24H, f"total_24h_frame_{t:04d}.tif"),
                         total_24h,
                         transform,
                         crs,
@@ -200,7 +200,7 @@ def run_simulation():
 
                 save_geotiff(
                         os.path.join(
-                                OUTPUT_DIR_CURRENT, f"current_precip_frame_{t:02d}.tif"
+                                OUTPUT_DIR_CURRENT, f"current_precip_frame_{t:04d}.tif"
                         ),
                         current_precip,
                         transform,
