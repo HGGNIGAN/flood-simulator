@@ -21,7 +21,7 @@ def process_precipitation_files(time_period: str, input_dir: Path, output_csv: P
         print(f"\nProcessing {time_period} precipitation data...")
 
         # Find all precipitation frame files - match directory-specific naming
-        precip_files = sorted(input_dir.glob("*_frame_*.tif"))
+        precip_files = sorted(input_dir.glob("*.tif"))
 
         if not precip_files:
                 print(f"ERROR:  No precipitation files found in {input_dir}")

@@ -66,7 +66,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 # Default input/output paths
 DEFAULT_INPUT_DIR = str(DATA_DIR / "simulation_output")
-DEFAULT_OUTPUT_CSV = str(DATA_DIR / "flood_timeseries.csv")
+DEFAULT_OUTPUT_CSV = str(DATA_DIR / "target_data.csv")
 
 # File matching pattern
 DEFAULT_FILE_PATTERN = "flood_classified_*.tif"

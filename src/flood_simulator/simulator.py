@@ -6,28 +6,7 @@ Implements Manning's equation, infiltration, and iterative flow routing.
 
 import rasterio
 import numpy as np
-import warnings
-
-# Try to import numba for JIT acceleration (optional but recommended)
-try:
-        from numba import jit, prange
-
-        NUMBA_AVAILABLE = True
-except ImportError:
-        print("    [WARNING] Numba not available. Install with: pip install numba")
-        print("    [WARNING] Simulation will run without JIT acceleration (slower)")
-        NUMBA_AVAILABLE = False
-
-        # Dummy decorators if numba not available
-        def jit(*args, **kwargs):
-                def decorator(func):
-                        return func
-
-                return decorator
-
-        prange = range
-
-warnings.filterwarnings("ignore", category=RuntimeWarning)
+from numba import jit, prange
 
 
 # --- CONFIGURATION ---
@@ -205,8 +184,6 @@ def demo_simulation(host_paths):
         """
         try:
                 print("    [SIMULATOR] Starting physics-based simulation...")
-                if NUMBA_AVAILABLE:
-                        print("    [SIMULATOR] Using Numba JIT acceleration (parallel)")
 
                 # ==================== PHASE 1: LOAD STATIC DATA ====================
 
@@ -341,10 +318,10 @@ def demo_simulation(host_paths):
                         )
 
                         # Apply infiltration losses (small continuous loss)
-                        # Scale Ksat by time step
+                        # Scale Ksat by time step - REDUCED to prevent over-drainage
                         ksat_scaled = (
-                                ksat_ms * (dt / SIMULATION_DURATION_SECONDS) * 0.1
-                        )  # Small incremental loss
+                                ksat_ms * (dt / SIMULATION_DURATION_SECONDS) * 0.05
+                        )  # Reduced from 0.1 to 0.05
                         imperv_scaled = imperviousness.astype(np.float32)
 
                         h_current = calculate_infiltration(
@@ -365,7 +342,7 @@ def demo_simulation(host_paths):
                                         f"    [SIMULATOR] Progress: {progress:.0f}% | Max depth: {current_max:.3f}m"
                                 )
 
-                # ==================== PHASE 4: POST-PROCESSING ====================
+                # POST-PROCESSING
 
                 final_depth = h_current.copy()
 
@@ -373,16 +350,16 @@ def demo_simulation(host_paths):
                 # Remove very small depths (< 1mm)
                 final_depth[final_depth < 0.001] = 0.0
 
-                # Apply elevation-based adjustment (high areas drain better)
+                # Apply elevation-based adjustment (high areas drain better) - REDUCED
                 dem_normalized = (dem - np.min(dem[valid_mask])) / (
                         np.max(dem[valid_mask]) - np.min(dem[valid_mask]) + 1e-6
                 )
                 high_elevation_factor = np.where(
-                        dem_normalized > 0.8, 0.5, 1.0
-                )  # 50% reduction for top 20% elevation
+                        dem_normalized > 0.9, 0.7, 1.0
+                )  # Only reduce top 10% elevation, and less severely (70% instead of 50%)
                 final_depth = final_depth * high_elevation_factor
 
-                # Slope-based drainage (steeper slopes drain faster)
+                # Slope-based drainage (steeper slopes drain faster) - REDUCED
                 grad_y, grad_x = np.gradient(dem)
                 slope_magnitude = np.sqrt(grad_x**2 + grad_y**2)
                 slope_normalized = np.clip(
@@ -392,8 +369,8 @@ def demo_simulation(host_paths):
                         1,
                 )
                 drainage_factor = 1.0 - (
-                        slope_normalized * 0.3
-                )  # Up to 30% reduction on steep slopes
+                        slope_normalized * 0.15
+                )  # Reduced from 30% to 15% reduction on steep slopes
                 final_depth = final_depth * drainage_factor
 
                 # Apply nodata mask
@@ -403,7 +380,7 @@ def demo_simulation(host_paths):
                 final_depth = np.clip(final_depth, 0, 10.0)
                 final_depth[~valid_mask] = -9999.0
 
-                # ==================== PHASE 5: SAVE OUTPUT ====================
+                # Output
 
                 profile.update(dtype="float32", nodata=-9999.0, compress="lzw")
                 with rasterio.open(host_paths["output_raw"], "w", **profile) as dst:

@@ -23,14 +23,14 @@ from multiprocessing import cpu_count
 
 # --- CONFIGURATION ---
 SIMULATION_HOURS = 8  # Simulation duration (hours)
-TIME_STEP_MINUTES = 5  # Time step between frames (minutes)
+TIME_STEP_MINUTES = 15  # Time step between frames (minutes)
 DEMO_SPEED_SECONDS = 0  # Pause between frames for demo (set to 0 for no pause)
 MAP_RESOLUTION = 30  # Raster resolution (m/pixel)
 
 # Performance optimization
 USE_PARALLEL = True  # Enable parallel processing (highly recommended)
 NUM_WORKERS = None  # Number of CPU cores to use (None = auto-detect all cores)
-CHUNK_SIZE = 200  # Number of rows to process per chunk (adjust based on RAM)
+CHUNK_SIZE = 800  # Number of rows to process per chunk (adjust based on RAM)
 
 # Perlin noise parameters
 SCALE = 100.0  # Spatial scale for noise
@@ -40,24 +40,24 @@ LACUNARITY = 2.0  # Frequency multiplier across octaves
 TIME_SCALE = 0.1  # Temporal evolution speed
 
 # Precipitation parameters - ENHANCED FOR HEAVY FLOODING
-MAX_INTENSITY = 250.0  # Maximum precipitation intensity (mm/hr)
-INTENSITY_THRESHOLD = 0.25  # Threshold below which precip is 0 (creates storm cells)
+MAX_INTENSITY = 300.0  # Maximum precipitation intensity (mm/hr)
+INTENSITY_THRESHOLD = 0.35  # Threshold below which precip is 0 (creates storm cells)
 INTENSITY_CONCENTRATION = (
-        3.25  # Power exponent for storm concentration (higher = more intense cores)
+        2.0  # Power exponent for storm concentration (higher = more intense cores)
 )
 
 # Storm intensity profile parameters
-STORM_PEAK_POSITION = 0.25  # Peak occurs at 40% through the simulation (0.0 to 1.0)
+STORM_PEAK_POSITION = 0.4  # Peak occurs at 40% through the simulation (0.0 to 1.0)
 STORM_PEAK_WIDTH = 0.4  # Width of peak intensity period (0.0 to 1.0)
 STORM_BUILD_RATE = 2.5  # How quickly storm builds up (higher = faster)
-STORM_DECAY_RATE = 1.5  # How quickly storm decays (higher = faster)
+STORM_DECAY_RATE = 1.25  # How quickly storm decays (higher = faster)
 
 # Storm movement parameters
 STORM_DIRECTION = (
-        45  # Direction storm moves (degrees, 0=East, 90=North, 180=West, 270=South)
+        50  # Direction storm moves (degrees, 0=East, 90=North, 180=West, 270=South)
 )
 STORM_SPEED = 0.3  # Storm movement speed (pixels per frame, typical: 0.1-0.5)
-WIND_STRENGTH = 0.3  # Wind influence on precipitation (0.0-1.0)
+WIND_STRENGTH = 0.5  # Wind influence on precipitation (0.0-1.0)
 ENABLE_VORTICITY = True  # Enable rotation/tornado effects during peak
 VORTICITY_STRENGTH = 0.1  # Strength of rotational effects (0.0-0.2)
 
@@ -357,7 +357,9 @@ class StormGenerator:
                                 else 0
                         )
                         extreme_mask = precip_intensity > percentile_90
-                        precip_intensity[extreme_mask] *= 1.3  # Boost extreme values
+                        precip_intensity[extreme_mask] *= (
+                                1.5  # Boost extreme values by 50%
+                        )
 
                 return precip_intensity.astype(np.float32)
 
