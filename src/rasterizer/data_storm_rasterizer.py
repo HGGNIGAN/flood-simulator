@@ -10,7 +10,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 # Define the storm data directories for each time aggregation
 STORM_DIRS = {
-        # "current": DATA_DIR / "storm_generator" / "current_precip",
+        "current": DATA_DIR / "storm_generator" / "current_precip",
         "1h": DATA_DIR / "storm_generator" / "total_1h",
         "2h": DATA_DIR / "storm_generator" / "total_2h",
         "24h": DATA_DIR / "storm_generator" / "total_24h",
@@ -20,8 +20,8 @@ STORM_DIRS = {
 def process_precipitation_files(time_period: str, input_dir: Path, output_csv: Path):
         print(f"\nProcessing {time_period} precipitation data...")
 
-        # Find all precipitation frame files
-        precip_files = sorted(input_dir.glob("total_*.tif"))
+        # Find all precipitation frame files - match directory-specific naming
+        precip_files = sorted(input_dir.glob("*_frame_*.tif"))
 
         if not precip_files:
                 print(f"ERROR:  No precipitation files found in {input_dir}")
