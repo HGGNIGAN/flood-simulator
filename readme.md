@@ -58,7 +58,7 @@ pip install numpy rasterio polars noise tqdm numba
 ```text
 flood-simulator/
 ├── data/
-│   ├── static/                    # Static input data (DEM, LULC, etc.)
+│   ├── static/                    # Static input data (DEM, LULC, etc.) !!REQUIRES MANUALY COLLECTING
 │   ├── storm_generator/           # Generated precipitation data
 │   │   ├── current_precip/        # Instantaneous precipitation (mm/hr)
 │   │   ├── total_1h/              # 1-hour cumulative precipitation (mm)
