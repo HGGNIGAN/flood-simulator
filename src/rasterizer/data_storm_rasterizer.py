@@ -8,13 +8,17 @@ from tqdm import tqdm
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 
-# Define the storm data directories for each time aggregation
-STORM_DIRS = {
-        "current": DATA_DIR / "storm_generator" / "current_precip",
-        "1h": DATA_DIR / "storm_generator" / "total_1h",
-        "2h": DATA_DIR / "storm_generator" / "total_2h",
-        "24h": DATA_DIR / "storm_generator" / "total_24h",
-}
+
+def get_storm_dirs(use_test_output=False):
+        """Get storm data directories based on mode"""
+        base_dir = "storm_generator_test" if use_test_output else "storm_generator"
+
+        return {
+                "current": DATA_DIR / base_dir / "current_precip",
+                "1h": DATA_DIR / base_dir / "total_1h",
+                "2h": DATA_DIR / base_dir / "total_2h",
+                "24h": DATA_DIR / base_dir / "total_24h",
+        }
 
 
 def process_precipitation_files(time_period: str, input_dir: Path, output_csv: Path):
@@ -101,8 +105,25 @@ def process_precipitation_files(time_period: str, input_dir: Path, output_csv: P
         print(f"SUCCESS: {time_period} precipitation data saved to {output_csv}")
 
 
-def main():
-        for time_period, input_dir in STORM_DIRS.items():
+def main(use_test_output=False):
+        """
+        Main function to process precipitation files.
+
+        Args:
+                use_test_output: If True, uses storm_generator_test directory
+        """
+        print("\n" + "=" * 80)
+        if use_test_output:
+                print("Processing TEST storm generator data")
+                print("Input directory: data/storm_generator_test/")
+        else:
+                print("Processing FULL storm generator data")
+                print("Input directory: data/storm_generator/")
+        print("=" * 80)
+
+        storm_dirs = get_storm_dirs(use_test_output)
+
+        for time_period, input_dir in storm_dirs.items():
                 output_csv = DATA_DIR / f"precipitation_{time_period}.csv"
                 try:
                         process_precipitation_files(time_period, input_dir, output_csv)

@@ -2,6 +2,7 @@ import rasterio
 import numpy as np
 import os
 import glob
+import sys
 from pathlib import Path
 
 from src.lisflood_docker.runner import run_lisflood_docker
@@ -44,6 +45,8 @@ CONTAINER_BASE_PATHS = {
 # Parameters
 CLASSIFICATION_BINS_METERS = [0.05, 0.25, 0.40]
 CLASSIFICATION_VALUES = [0, 1, 2, 3]
+# Select precipitation data type to use ("current_precip", "total_1h", "total_2h", "total_24h")
+PRECIP_TYPE = "total_2h"
 
 # --- HELPER FUNCTIONS ---
 
@@ -95,21 +98,155 @@ def reclassify_flood_depth(raw_depth_file, classified_file, bins, nodata_val=-99
         print(f"Saved classification result: {classified_file}")
 
 
+# --- STORM GENERATION FUNCTIONS ---
+
+
+def run_storm_generator(use_test_version=False):
+        """Run storm generator (full or test version)"""
+        print("\n" + "=" * 80)
+        if use_test_version:
+                print("RUNNING TEST STORM GENERATOR")
+                print("Output directory: data/storm_generator_test/")
+        else:
+                print("RUNNING FULL STORM GENERATOR")
+                print("Output directory: data/storm_generator/")
+        print("=" * 80)
+
+        try:
+                if use_test_version:
+                        # Import and run test version
+                        sys.path.insert(0, str(PROJECT_ROOT / "src"))
+                        from storm_gen import storm_generator_test
+
+                        storm_generator_test.run_simulation()
+                else:
+                        # Import and run full version
+                        sys.path.insert(0, str(PROJECT_ROOT / "src"))
+                        from storm_gen import storm_generator
+
+                        storm_generator.run_simulation()
+
+                print("\nDONE: Storm generation completed successfully!")
+                return True
+        except Exception as e:
+                print(f"\nERROR: Storm generation failed: {e}")
+                import traceback
+
+                traceback.print_exc()
+                return False
+
+
+def run_precipitation_rasterizer(use_test_version=False):
+        """Extract precipitation data to CSV"""
+        print("\n" + "=" * 80)
+        print("EXTRACTING PRECIPITATION DATA TO CSV")
+        print("=" * 80)
+
+        try:
+                sys.path.insert(0, str(PROJECT_ROOT / "src"))
+                from rasterizer import data_storm_rasterizer
+
+                # Run with test flag if needed
+                data_storm_rasterizer.main(use_test_output=use_test_version)
+
+                print("\nDONE: Precipitation extraction completed successfully!")
+                return True
+        except Exception as e:
+                print(f"\nERROR: Precipitation extraction failed: {e}")
+                import traceback
+
+                traceback.print_exc()
+                return False
+
+
+def run_flood_rasterizer():
+        """Extract flood classification data to CSV"""
+        print("\n" + "=" * 80)
+        print("EXTRACTING FLOOD CLASSIFICATION DATA TO CSV")
+        print("=" * 80)
+
+        try:
+                sys.path.insert(0, str(PROJECT_ROOT / "src"))
+                from rasterizer import data_target_rasterizer
+
+                extractor = data_target_rasterizer.FloodTimeSeriesExtractor(
+                        sample_rate=1,  # Use all pixels
+                        chunk_size=80000,
+                )
+
+                # Run extraction
+                extractor.extract_timeseries_frame_by_frame(
+                        valid_pixels_only=True, min_flood_events=0
+                )
+
+                print("\nDONE: Flood classification extraction completed successfully!")
+                return True
+        except Exception as e:
+                print(f"\nERROR: Flood classification extraction failed: {e}")
+                import traceback
+
+                traceback.print_exc()
+                return False
+
+
 # --- MAIN PROGRAM ---
 
 
 def main():
         print("=" * 80)
-        print("Starting Pipeline to Create Flood Label Y using LISFLOOD (Docker)...")
+        print("FLOOD SIMULATION PIPELINE")
+        print("=" * 80)
+
+        # Step 0: Optional storm generation
+        print("\n" + "-" * 80)
+        print("STEP 0: STORM GENERATION (OPTIONAL)")
+        print("-" * 80)
+
+        use_test_storm = False
+
+        response = (
+                input("\nDo you want to generate new storm data? (y/n): ")
+                .strip()
+                .lower()
+        )
+
+        if response == "y":
+                # Ask which version to use
+                response_test = (
+                        input("Use test storm generator (faster, simpler)? (y/n): ")
+                        .strip()
+                        .lower()
+                )
+                use_test_storm = response_test == "y"
+
+                # Run storm generator
+                success = run_storm_generator(use_test_version=use_test_storm)
+                if success:
+                        # Ask if user wants to extract precipitation CSV
+                        response_csv = (
+                                input("\nExtract precipitation data to CSV? (y/n): ")
+                                .strip()
+                                .lower()
+                        )
+                        if response_csv == "y":
+                                run_precipitation_rasterizer(
+                                        use_test_version=use_test_storm
+                                )
+                else:
+                        print(
+                                "\nERROR: Storm generation failed. Using existing storm data..."
+                        )
+        else:
+                print("Skipping storm generation. Using existing storm data...")
+
+        print("\n" + "=" * 80)
+        print("STEP 1: FLOOD SIMULATION")
         print("Processing all frames from Storm Generator")
         print("=" * 80)
 
         # Ensure output directories exist
         os.makedirs(HOST_BASE_PATHS["output_dir"], exist_ok=True)
         os.makedirs(HOST_BASE_PATHS["settings_dir"], exist_ok=True)
-
-        # Select precipitation data type to use ("current_precip", "total_1h", "total_2h", "total_24h")
-        PRECIP_TYPE = "total_2h"
 
         # Get all frames from storm generator
         storm_frames = get_storm_frames(precip_type=PRECIP_TYPE)
@@ -203,15 +340,15 @@ def main():
                                 classified_file=HOST_PATHS["output_classified"],
                                 bins=CLASSIFICATION_BINS_METERS,
                         )
-                        print(f"    ✓ Frame {frame_num:04d} completed!")
+                        print(f"    DONE: Frame {frame_num:04d} completed!")
                         successful_frames += 1
                 except Exception as e:
-                        print(f"    ❌ Error classifying Frame {frame_num:04d}: {e}")
+                        print(f"    ERROR: Frame {frame_num:04d}: {e}")
                         failed_frames += 1
 
         # Summary
         print("\n" + "=" * 80)
-        print("PIPELINE COMPLETED")
+        print("STEP 1 COMPLETED: FLOOD SIMULATION")
         print("=" * 80)
         print(f"Total frames: {len(storm_frames)}")
         print(f"Successful: {successful_frames}")
@@ -219,6 +356,24 @@ def main():
         print(f"\nResults saved to: {HOST_BASE_PATHS['output_dir']}")
         print("  - Raw flood depth: flood_depth_raw_XXXX.tif")
         print("  - Classified: flood_classified_XXXX.tif")
+
+        # Step 2: Optional flood data extraction
+        if successful_frames > 0:
+                print("\n" + "-" * 80)
+                print("STEP 2: FLOOD DATA EXTRACTION (OPTIONAL)")
+                print("-" * 80)
+
+                response_flood_csv = (
+                        input("\nExtract flood classification data to CSV? (y/n): ")
+                        .strip()
+                        .lower()
+                )
+
+                if response_flood_csv == "y":
+                        run_flood_rasterizer()
+
+        print("\n" + "=" * 80)
+        print("PIPELINE COMPLETED")
         print("=" * 80)
 
 
