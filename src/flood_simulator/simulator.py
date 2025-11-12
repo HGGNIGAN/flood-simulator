@@ -215,7 +215,6 @@ def demo_simulation(host_paths):
                         profile = src.profile
                         dem = src.read(1).astype(np.float32)
                         nodata_val = src.nodata if src.nodata is not None else -9999.0
-                        transform = src.transform
 
                 ny, nx = dem.shape
 
