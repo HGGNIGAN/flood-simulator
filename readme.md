@@ -88,84 +88,143 @@ flood-simulator/
 
 ## Usage
 
-### Quick Start: Full Pipeline
+### Quick Start: Interactive Pipeline
 
-Run the complete simulation pipeline (storm generation + flood simulation + classification):
+Run the complete interactive pipeline:
 
 ```bash
 python src/main.py
 ```
 
-This will:
+**The pipeline will interactively prompt you for:**
 
-1. Generate realistic storm data with movement and wind effects
-2. Simulate flood depths using physics-based hydraulics
-3. Classify flood intensity (0=none, 1=light, 2=moderate, 3=severe)
-4. Output results to `data/simulation_output/`
+**Step 0: Storm Generation** (Optional)
 
-### Individual Components
+- **Prompt:** "Do you want to generate new storm data? (y/n)"
+  - If yes: Choose between full or test storm generator
+  - Test version is simpler, outputs to `storm_generator_test/`
+- **Prompt:** "Extract precipitation data to CSV? (y/n)"
+  - Exports time series: `precipitation_current.csv`, `precipitation_1h.csv`, etc.
 
-#### 1. Generate Storm Data Only
+**Step 1: Flood Simulation** (Automatic)
+
+- Processes all precipitation frames from storm generator
+- Simulates flood depths using physics-based hydraulics (Manning's equation)
+- Classifies flood intensity (0=none, 1=light, 2=moderate, 3=severe)
+- Outputs to `data/simulation_output/`
+
+**Step 2: Flood Data Extraction** (Optional)
+
+- **Prompt:** "Extract flood classification data to CSV? (y/n)"
+  - Exports `data/flood_timeseries.csv` (ML-ready format)
+  - Uses optimized parallel processing for fast extraction
+
+**Key Outputs:**
+
+- `data/simulation_output/flood_depth_raw_*.tif` - Raw flood depths (meters)
+- `data/simulation_output/flood_classified_*.tif` - Classified intensities (0-3)
+- `data/precipitation_*.csv` - Precipitation time series (if extracted)
+- `data/flood_timeseries.csv` - Flood classification time series (if extracted)
+
+### Running Individual Components (Advanced)
+
+You can also run components separately if needed:
+
+#### 1. Storm Generator (Full Version)
 
 ```bash
 python src/storm_gen/storm_generator.py
 ```
 
-**Configuration** (edit in `storm_generator.py`):
+Generates realistic storm with movement, wind, and vorticity effects.
+Output: `data/storm_generator/` (4 time windows)
 
-- `SIMULATION_HOURS = 8` - Total simulation duration
-- `TIME_STEP_MINUTES = 15` - Time between frames
-- `MAX_INTENSITY = 300.0` - Maximum precipitation (mm/hr)
-- `STORM_DIRECTION = 50` - Storm movement direction (degrees)
-- `STORM_SPEED = 0.3` - Movement speed (pixels/frame)
-- `ENABLE_VORTICITY = True` - Enable rotation/cyclonic effects
+#### 2. Storm Generator (Test Version)
 
-**Outputs**: 4 directories with time-series GeoTIFF files:
+```bash
+python src/storm_gen/storm_generator_test.py
+```
 
-- `data/storm_generator/current_precip/` - Instantaneous rates
-- `data/storm_generator/total_1h/` - 1-hour totals
-- `data/storm_generator/total_2h/` - 2-hour totals  
-- `data/storm_generator/total_24h/` - 24-hour totals
+Faster, simpler storm for development/testing.
+Output: `data/storm_generator_test/` (4 time windows)
 
-#### 2. Extract Precipitation Time Series
+#### 3. Precipitation Time Series Extraction
 
 ```bash
 python src/rasterizer/data_storm_rasterizer.py
 ```
 
-**Outputs**: CSV files with precipitation values at each pixel location over time
+Extracts precipitation GeoTIFFs to CSV format.
+Output: `data/precipitation_*.csv`
 
-- `data/precipitation_current.csv`
-- `data/precipitation_1h.csv`
-- `data/precipitation_2h.csv`
-- `data/precipitation_24h.csv`
-
-#### 3. Extract Spatial Features
+#### 4. Spatial Features Extraction
 
 ```bash
 python src/rasterizer/data_rasterizer.py
 ```
 
-**Outputs**: `data/feature_data.csv` with spatial features:
+Extracts static spatial features (DEM, land use, etc.).
+Output: `data/feature_data.csv`
 
-- Coordinates (x, y)
-- Elevation (from DEM)
-- Land use classification
-- Other static spatial features
+#### 5. Flood Time Series Extraction
 
-#### 4. Extract Flood Time Series
+Run within Python:
 
-```bash
-python src/rasterizer/data_target_rasterizer.py
+```python
+from rasterizer import data_target_rasterizer
+from pathlib import Path
+
+extractor = data_target_rasterizer.FloodTimeSeriesExtractor(
+    input_dir="data/simulation_output",
+    output_csv="data/flood_timeseries.csv",
+    sample_rate=1,  # All pixels
+)
+extractor.extract_timeseries_frame_by_frame(valid_pixels_only=True)
 ```
 
-**Configuration**:
+Output: `data/flood_timeseries.csv` (optimized parallel extraction)
 
-- `USE_PARALLEL = True` - Enable parallel processing (recommended)
-- `USE_VECTORIZATION = True` - Enable vectorized extraction (recommended)
-- `NUM_WORKERS = None` - CPU cores (None = auto-detect)
+## Workflow Examples
 
-**Outputs**: `data/flood_timeseries.csv` with flood classification at each location over time
+### Complete Pipeline
+
+```bash
+python src/main.py
+```
+
+1. Generate new storm? **y**
+2. Use test storm? **n** (use full version)
+3. Extract precipitation CSV? **y**
+4. *[Simulation runs automatically]*
+5. Extract flood CSV? **y**
+
+Result: Full dataset with precipitation and flood time series
+
+### Quick Development Test
+
+```bash
+python src/main.py
+```
+
+1. Generate new storm? **y**
+2. Use test storm? **y** (faster)
+3. Extract precipitation CSV? **n** (skip)
+4. *[Simulation runs automatically]*
+5. Extract flood CSV? **n** (skip)
+
+Result: Quick flood simulation for testing
+
+### Use Existing Storm Data
+
+```bash
+python src/main.py
+```
+
+1. Generate new storm? **n**
+2. *[Simulation runs automatically on existing data]*
+3. Extract flood CSV? **y** (if needed)
+
+Result: Re-run simulation without regenerating storms
 
 ## Performance Optimization
 
@@ -173,7 +232,9 @@ python src/rasterizer/data_target_rasterizer.py
 
 - **Parallel Processing**: Uses chunked processing optimized for Windows
 - **Vectorization**: NumPy meshgrid operations for coordinate transforms
-- **Typical Runtime**: 2-5 minutes for 96 frames (500x500 pixels)
+- **Typical Runtime**:
+  - Full version: 2-5 minutes for 96 frames (500x500 pixels)
+  - Test version: 30-60 seconds for simplified storm
 
 ### Flood Simulator  
 
