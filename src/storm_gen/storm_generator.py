@@ -39,18 +39,20 @@ PERSISTENCE = 0.5  # Amplitude persistence across octaves
 LACUNARITY = 2.0  # Frequency multiplier across octaves
 TIME_SCALE = 0.1  # Temporal evolution speed
 
-# Precipitation parameters - ENHANCED FOR HEAVY FLOODING
-MAX_INTENSITY = 300.0  # Maximum precipitation intensity (mm/hr)
-INTENSITY_THRESHOLD = 0.35  # Threshold below which precip is 0 (creates storm cells)
-INTENSITY_CONCENTRATION = (
-        2.0  # Power exponent for storm concentration (higher = more intense cores)
-)
+# Precipitation parameters - RECALIBRATED FOR EXTREME FLOODING
+MAX_INTENSITY = 350.0  # Maximum precipitation intensity (mm/hr) - INCREASED
+INTENSITY_THRESHOLD = 0.25  # Threshold below which precip is 0 (creates storm cells) - LOWERED for more coverage
+INTENSITY_CONCENTRATION = 1.5  # Power exponent for storm concentration - REDUCED to preserve more high values (0.8^1.5 = 0.72 vs 0.8^2.0 = 0.64)
 
 # Storm intensity profile parameters
 STORM_PEAK_POSITION = 0.4  # Peak occurs at 40% through the simulation (0.0 to 1.0)
-STORM_PEAK_WIDTH = 0.4  # Width of peak intensity period (0.0 to 1.0)
+STORM_PEAK_WIDTH = (
+        0.5  # Width of peak intensity period (0.0 to 1.0) - INCREASED for longer peak
+)
 STORM_BUILD_RATE = 2.5  # How quickly storm builds up (higher = faster)
-STORM_DECAY_RATE = 1.25  # How quickly storm decays (higher = faster)
+STORM_DECAY_RATE = (
+        1.0  # How quickly storm decays (higher = faster) - REDUCED for slower decay
+)
 
 # Storm movement parameters
 STORM_DIRECTION = (
@@ -347,18 +349,20 @@ class StormGenerator:
                         precip_concentrated * MAX_INTENSITY * intensity_multiplier
                 )
 
-                # Add extreme events: boost the top 10% of values even more during peak periods
-                if intensity_multiplier > 0.7:  # Only during strong storm periods
-                        percentile_90 = (
+                # Add extreme events: boost the top 15% of values even more during peak periods
+                if (
+                        intensity_multiplier > 0.6
+                ):  # Lower threshold - applies to more of the storm
+                        percentile_85 = (
                                 np.percentile(
-                                        precip_intensity[precip_intensity > 0], 90
+                                        precip_intensity[precip_intensity > 0], 85
                                 )
                                 if np.any(precip_intensity > 0)
                                 else 0
                         )
-                        extreme_mask = precip_intensity > percentile_90
+                        extreme_mask = precip_intensity > percentile_85
                         precip_intensity[extreme_mask] *= (
-                                1.5  # Boost extreme values by 50%
+                                1.8  # Boost extreme values by 80% (increased from 50%)
                         )
 
                 return precip_intensity.astype(np.float32)

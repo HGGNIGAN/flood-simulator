@@ -268,8 +268,11 @@ def demo_simulation(host_paths):
                 # Pervious surfaces: some infiltrates, rest becomes runoff
                 pervious_precip = initial_water_depth * (1.0 - imperviousness)
 
-                # Maximum infiltration capacity over simulation period
-                max_infiltration = ksat_ms * SIMULATION_DURATION_SECONDS  # meters
+                # Maximum infiltration capacity over simulation period - REDUCED for saturated soil conditions
+                # In extreme storms, soil becomes saturated quickly, reducing infiltration capacity
+                max_infiltration = (
+                        ksat_ms * SIMULATION_DURATION_SECONDS * 0.3
+                )  # meters (30% of full capacity)
 
                 # Actual infiltration (limited by capacity)
                 infiltration = np.minimum(pervious_precip, max_infiltration)
@@ -318,10 +321,10 @@ def demo_simulation(host_paths):
                         )
 
                         # Apply infiltration losses (small continuous loss)
-                        # Scale Ksat by time step - REDUCED to prevent over-drainage
+                        # Scale Ksat by time step - FURTHER REDUCED for extreme flooding scenarios
                         ksat_scaled = (
-                                ksat_ms * (dt / SIMULATION_DURATION_SECONDS) * 0.05
-                        )  # Reduced from 0.1 to 0.05
+                                ksat_ms * (dt / SIMULATION_DURATION_SECONDS) * 0.02
+                        )  # Reduced from 0.05 to 0.02 - soil saturation effect
                         imperv_scaled = imperviousness.astype(np.float32)
 
                         h_current = calculate_infiltration(
@@ -350,16 +353,16 @@ def demo_simulation(host_paths):
                 # Remove very small depths (< 1mm)
                 final_depth[final_depth < 0.001] = 0.0
 
-                # Apply elevation-based adjustment (high areas drain better) - REDUCED
+                # Apply elevation-based adjustment (high areas drain better) - MINIMAL REDUCTION
                 dem_normalized = (dem - np.min(dem[valid_mask])) / (
                         np.max(dem[valid_mask]) - np.min(dem[valid_mask]) + 1e-6
                 )
                 high_elevation_factor = np.where(
-                        dem_normalized > 0.9, 0.7, 1.0
-                )  # Only reduce top 10% elevation, and less severely (70% instead of 50%)
+                        dem_normalized > 0.95, 0.85, 1.0
+                )  # Only reduce top 5% elevation, minimally (85% retention vs 70%)
                 final_depth = final_depth * high_elevation_factor
 
-                # Slope-based drainage (steeper slopes drain faster) - REDUCED
+                # Slope-based drainage (steeper slopes drain faster) - MINIMAL REDUCTION
                 grad_y, grad_x = np.gradient(dem)
                 slope_magnitude = np.sqrt(grad_x**2 + grad_y**2)
                 slope_normalized = np.clip(
@@ -369,8 +372,8 @@ def demo_simulation(host_paths):
                         1,
                 )
                 drainage_factor = 1.0 - (
-                        slope_normalized * 0.15
-                )  # Reduced from 30% to 15% reduction on steep slopes
+                        slope_normalized * 0.08
+                )  # Reduced from 15% to 8% reduction on steep slopes
                 final_depth = final_depth * drainage_factor
 
                 # Apply nodata mask
