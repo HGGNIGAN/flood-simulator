@@ -14,7 +14,7 @@ of the label of the directory.
 
 import numpy as np
 import rasterio
-from noise import pnoise3
+from perlin_noise import PerlinNoise
 from pathlib import Path
 from collections import deque
 import os
@@ -154,18 +154,19 @@ class StormGenerator:
                 chunk_height = y_end - y_start
                 noise_chunk = np.zeros((chunk_height, self.width), dtype=np.float32)
 
+                # Create PerlinNoise instance for this chunk
+                noise_generator = PerlinNoise(octaves=OCTAVES, seed=0)
+
                 for y_local in range(chunk_height):
                         for x in range(self.width):
-                                noise_val = pnoise3(
-                                        nx_chunk[y_local, x] * SCALE,
-                                        ny_chunk[y_local, x] * SCALE,
-                                        time_z,
-                                        octaves=OCTAVES,
-                                        persistence=PERSISTENCE,
-                                        lacunarity=LACUNARITY,
-                                        repeatx=self.width,
-                                        repeaty=self.height,
-                                        base=0,
+                                # perlin_noise uses normalized coordinates [0, 1]
+                                # Scale down the coordinates for the noise function
+                                noise_val = noise_generator.noise(
+                                        [
+                                                nx_chunk[y_local, x] * SCALE / 100.0,
+                                                ny_chunk[y_local, x] * SCALE / 100.0,
+                                                time_z,
+                                        ]
                                 )
                                 noise_chunk[y_local, x] = noise_val
 
@@ -234,18 +235,19 @@ class StormGenerator:
                 """Generate noise field serially (fallback method)."""
                 noise_field = np.zeros((self.height, self.width), dtype=np.float32)
 
+                # Create PerlinNoise instance
+                noise_generator = PerlinNoise(octaves=OCTAVES, seed=0)
+
                 for y in range(self.height):
                         for x in range(self.width):
-                                noise_val = pnoise3(
-                                        nx[y, x] * SCALE,
-                                        ny[y, x] * SCALE,
-                                        time_z,
-                                        octaves=OCTAVES,
-                                        persistence=PERSISTENCE,
-                                        lacunarity=LACUNARITY,
-                                        repeatx=self.width,
-                                        repeaty=self.height,
-                                        base=0,
+                                # perlin_noise uses normalized coordinates [0, 1]
+                                # Scale down the coordinates for the noise function
+                                noise_val = noise_generator.noise(
+                                        [
+                                                nx[y, x] * SCALE / 100.0,
+                                                ny[y, x] * SCALE / 100.0,
+                                                time_z,
+                                        ]
                                 )
                                 noise_field[y, x] = noise_val
 

@@ -22,7 +22,7 @@ A Python-based flood simulation pipeline that generates realistic synthetic stor
 ### Python Libraries
 
 ```bash
-pip install numpy rasterio polars noise tqdm numba
+pip install numpy rasterio polars perlin-noise tqdm numba
 ```
 
 **Details:**
@@ -30,7 +30,7 @@ pip install numpy rasterio polars noise tqdm numba
 - **numpy**: Numerical computing and array operations
 - **rasterio**: Geospatial raster I/O for GeoTIFF files
 - **polars**: High-performance DataFrame library (faster than pandas)
-- **noise**: Perlin noise generation for synthetic storm patterns
+- **perlin-noise**: Perlin noise generation for synthetic storm patterns
 - **tqdm**: Progress bars for long-running operations
 - **numba**: JIT compilation for 10-100x speedup (optional but highly recommended)
 
@@ -50,7 +50,7 @@ pip install numpy rasterio polars noise tqdm numba
 2. Install required Python libraries:
 
    ```bash
-   pip install numpy rasterio polars noise tqdm numba
+   pip install numpy rasterio polars perlin-noise tqdm numba
    ```
 
 ## Project Structure

@@ -1,5 +1,5 @@
 import numpy as np
-import noise
+from perlin_noise import PerlinNoise
 import rasterio
 from pathlib import Path
 import time
@@ -68,15 +68,15 @@ def generate_dynamic_noise(width, height, time_step):
         noise_map = np.zeros((height, width))
         # Use the time_step to create a unique "slice" of the 3D noise space
         time_component = time_step * NOISE_EVOLUTION_SPEED
+
+        # Create PerlinNoise instance
+        noise_generator = PerlinNoise(octaves=NOISE_OCTAVES, seed=0)
+
         for i in range(height):
                 for j in range(width):
-                        noise_map[i, j] = noise.pnoise3(
-                                i / SCALE,
-                                j / SCALE,
-                                time_component,
-                                octaves=NOISE_OCTAVES,
-                                persistence=NOISE_PERSISTENCE,
-                                lacunarity=NOISE_LACUNARITY,
+                        # perlin_noise uses normalized coordinates [0, 1]
+                        noise_map[i, j] = noise_generator.noise(
+                                [i / SCALE, j / SCALE, time_component]
                         )
         return noise_map
 
