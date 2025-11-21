@@ -24,8 +24,11 @@ HOST_BASE_PATHS = {
         "dem": str(DATA_DIR / "static" / "Hanoi_DEM_30m_UTM.tif"),
         "roughness": str(DATA_DIR / "static" / "Hanoi_n_roughness_30m_UTM.tif"),
         "storm_generator_dir": str(DATA_DIR / "storm_generator"),
+        "storm_generator_test_dir": str(DATA_DIR / "storm_generator_test"),
         "settings_dir": str(DATA_DIR / "lisflood_settings"),
+        "settings_test_dir": str(DATA_DIR / "lisflood_settings_test"),
         "output_dir": str(DATA_DIR / "simulation_output"),
+        "output_test_dir": str(DATA_DIR / "simulation_output_test"),
 }
 
 # Directories inside container (recognizable by LISFLOOD docker)
@@ -38,8 +41,17 @@ CONTAINER_BASE_PATHS = {
                 CONTAINER_BASE_DATA_DIR, "static", "Hanoi_n_roughness_30m_UTM.tif"
         ),
         "storm_generator_dir": os.path.join(CONTAINER_BASE_DATA_DIR, "storm_generator"),
+        "storm_generator_test_dir": os.path.join(
+                CONTAINER_BASE_DATA_DIR, "storm_generator_test"
+        ),
         "settings_dir": os.path.join(CONTAINER_BASE_DATA_DIR, "lisflood_settings"),
+        "settings_test_dir": os.path.join(
+                CONTAINER_BASE_DATA_DIR, "lisflood_settings_test"
+        ),
         "output_dir": os.path.join(CONTAINER_BASE_DATA_DIR, "simulation_output"),
+        "output_test_dir": os.path.join(
+                CONTAINER_BASE_DATA_DIR, "simulation_output_test"
+        ),
 }
 
 # Parameters
@@ -51,8 +63,13 @@ PRECIP_TYPE = "total_2h"
 # --- HELPER FUNCTIONS ---
 
 
-def get_storm_frames(precip_type="current_precip"):
-        storm_dir = os.path.join(HOST_BASE_PATHS["storm_generator_dir"], precip_type)
+def get_storm_frames(precip_type="current_precip", use_test=False):
+        storm_base_dir = (
+                HOST_BASE_PATHS["storm_generator_test_dir"]
+                if use_test
+                else HOST_BASE_PATHS["storm_generator_dir"]
+        )
+        storm_dir = os.path.join(storm_base_dir, precip_type)
 
         if not os.path.exists(storm_dir):
                 print(f"Warning: Directory {storm_dir} does not exist!")
@@ -159,7 +176,7 @@ def run_precipitation_rasterizer(use_test_version=False):
                 return False
 
 
-def run_flood_rasterizer():
+def run_flood_rasterizer(use_test=False):
         """Extract flood classification data to CSV"""
         print("\n" + "=" * 80)
         print("EXTRACTING FLOOD CLASSIFICATION DATA TO CSV")
@@ -172,6 +189,7 @@ def run_flood_rasterizer():
                 extractor = data_target_rasterizer.FloodTimeSeriesExtractor(
                         sample_rate=1,  # Use all pixels
                         chunk_size=80000,
+                        use_test=use_test,
                 )
 
                 # Run extraction
@@ -192,17 +210,14 @@ def run_flood_rasterizer():
 # --- MAIN PROGRAM ---
 
 
-def main():
-        print("=" * 80)
-        print("FLOOD SIMULATION PIPELINE")
-        print("=" * 80)
-
-        # Step 0: Optional storm generation
+def generate_storm():
+        """Step 0: Optional storm generation - returns whether test data is used"""
         print("\n" + "-" * 80)
         print("STEP 0: STORM GENERATION (OPTIONAL)")
         print("-" * 80)
 
         use_test_storm = False
+        storm_generated = False
 
         response = (
                 input("\nDo you want to generate new storm data? (y/n): ")
@@ -218,6 +233,7 @@ def main():
                         .lower()
                 )
                 use_test_storm = response_test == "y"
+                storm_generated = True
 
                 # Run storm generator
                 success = run_storm_generator(use_test_version=use_test_storm)
@@ -236,141 +252,233 @@ def main():
                         print(
                                 "\nERROR: Storm generation failed. Using existing storm data..."
                         )
+                        storm_generated = False
         else:
                 print("Skipping storm generation. Using existing storm data...")
-
-        print("\n" + "=" * 80)
-        print("STEP 1: FLOOD SIMULATION")
-        print("Processing all frames from Storm Generator")
-        print("=" * 80)
-
-        # Ensure output directories exist
-        os.makedirs(HOST_BASE_PATHS["output_dir"], exist_ok=True)
-        os.makedirs(HOST_BASE_PATHS["settings_dir"], exist_ok=True)
-
-        # Get all frames from storm generator
-        storm_frames = get_storm_frames(precip_type=PRECIP_TYPE)
-
-        if not storm_frames:
-                print(
-                        f"No files found in {PRECIP_TYPE}. Please run storm_generator.py first."
-                )
-                return
-
-        print(
-                f"\nWill process {len(storm_frames)} frames from '{PRECIP_TYPE}' directory"
-        )
-        print("-" * 80)
-
-        # Run mode
-        # IMPORTANT: Extensive configuration is needed for LISFLOOD to run properly
-        USE_DOCKER = False  # True: run with Docker, False: run demo simulation
-        LISFLOOD_IMAGE = "jrce1/lisflood:latest"
-
-        # Statistics
-        successful_frames = 0
-        failed_frames = 0
-
-        # Loop through all frames
-        for idx, rain_file in enumerate(storm_frames, 1):
-                frame_num = get_frame_number(rain_file)
-                print(
-                        f"\n[{idx}/{len(storm_frames)}] Processing Frame {frame_num:04d}..."
-                )
-                print(f"    Input: {os.path.basename(rain_file)}")
-
-                # Create paths for this frame
-                HOST_PATHS = {
-                        "base_data_dir": HOST_BASE_PATHS["base_data_dir"],
-                        "dem": HOST_BASE_PATHS["dem"],
-                        "roughness": HOST_BASE_PATHS["roughness"],
-                        "rain": rain_file,
-                        "settings": os.path.join(
-                                HOST_BASE_PATHS["settings_dir"],
-                                f"settings_frame_{frame_num:04d}.xml",
-                        ),
-                        "output_raw": os.path.join(
-                                HOST_BASE_PATHS["output_dir"],
-                                f"flood_depth_raw_{frame_num:04d}.tif",
-                        ),
-                        "output_classified": os.path.join(
-                                HOST_BASE_PATHS["output_dir"],
-                                f"flood_classified_{frame_num:04d}.tif",
-                        ),
-                }
-
-                CONTAINER_PATHS = {
-                        "base_data_dir": CONTAINER_BASE_PATHS["base_data_dir"],
-                        "dem": CONTAINER_BASE_PATHS["dem"],
-                        "roughness": CONTAINER_BASE_PATHS["roughness"],
-                        "rain": os.path.join(
-                                CONTAINER_BASE_PATHS["storm_generator_dir"],
-                                PRECIP_TYPE,
-                                os.path.basename(rain_file),
-                        ),
-                        "settings": os.path.join(
-                                CONTAINER_BASE_PATHS["settings_dir"],
-                                f"settings_frame_{frame_num:04d}.xml",
-                        ),
-                        "output": os.path.join(
-                                CONTAINER_BASE_PATHS["output_dir"],
-                                f"flood_depth_raw_{frame_num:04d}.tif",
-                        ),
-                }
-
-                # Run hydraulic model
-                if USE_DOCKER:
-                        print("    Running LISFLOOD with Docker...")
-                        success = run_lisflood_docker(
-                                HOST_PATHS, CONTAINER_PATHS, LISFLOOD_IMAGE
-                        )
-                else:
-                        print("    [DEMO MODE] Creating simulation data...")
-                        success = demo_simulation(HOST_PATHS)
-
-                if not success:
-                        print(f"    ❌ Frame {frame_num:04d} failed!")
-                        failed_frames += 1
-                        continue
-
-                # 4-Level Classification
-                try:
-                        reclassify_flood_depth(
-                                raw_depth_file=HOST_PATHS["output_raw"],
-                                classified_file=HOST_PATHS["output_classified"],
-                                bins=CLASSIFICATION_BINS_METERS,
-                        )
-                        print(f"    DONE: Frame {frame_num:04d} completed!")
-                        successful_frames += 1
-                except Exception as e:
-                        print(f"    ERROR: Frame {frame_num:04d}: {e}")
-                        failed_frames += 1
-
-        # Summary
-        print("\n" + "=" * 80)
-        print("STEP 1 COMPLETED: FLOOD SIMULATION")
-        print("=" * 80)
-        print(f"Total frames: {len(storm_frames)}")
-        print(f"Successful: {successful_frames}")
-        print(f"Failed: {failed_frames}")
-        print(f"\nResults saved to: {HOST_BASE_PATHS['output_dir']}")
-        print("  - Raw flood depth: flood_depth_raw_XXXX.tif")
-        print("  - Classified: flood_classified_XXXX.tif")
-
-        # Step 2: Optional flood data extraction
-        if successful_frames > 0:
-                print("\n" + "-" * 80)
-                print("STEP 2: FLOOD DATA EXTRACTION (OPTIONAL)")
-                print("-" * 80)
-
-                response_flood_csv = (
-                        input("\nExtract flood classification data to CSV? (y/n): ")
+                # Ask user which dataset to use
+                response_dataset = (
+                        input("\nUse test data or train data? (test/train): ")
                         .strip()
                         .lower()
                 )
+                use_test_storm = response_dataset == "test"
 
-                if response_flood_csv == "y":
-                        run_flood_rasterizer()
+        return use_test_storm, storm_generated
+
+
+def simulate_flood(use_test=False):
+        """Step 1: Optional flood simulation"""
+        print("\n" + "-" * 80)
+        print("STEP 1: FLOOD SIMULATION (OPTIONAL)")
+        print("-" * 80)
+
+        response_flood = (
+                input("\nDo you want to run flood simulation? (y/n): ").strip().lower()
+        )
+
+        successful_frames = 0
+        failed_frames = 0
+
+        if response_flood == "y":
+                print("\n" + "=" * 80)
+                print("STEP 1: FLOOD SIMULATION")
+                dataset_type = "Test" if use_test else "Train"
+                print(
+                        f"Processing all frames from Storm Generator ({dataset_type} Data)"
+                )
+                print("=" * 80)
+
+                # Select appropriate directories based on test flag
+                output_dir = (
+                        HOST_BASE_PATHS["output_test_dir"]
+                        if use_test
+                        else HOST_BASE_PATHS["output_dir"]
+                )
+                settings_dir = (
+                        HOST_BASE_PATHS["settings_test_dir"]
+                        if use_test
+                        else HOST_BASE_PATHS["settings_dir"]
+                )
+                container_storm_gen_dir = (
+                        CONTAINER_BASE_PATHS["storm_generator_test_dir"]
+                        if use_test
+                        else CONTAINER_BASE_PATHS["storm_generator_dir"]
+                )
+                container_settings_dir = (
+                        CONTAINER_BASE_PATHS["settings_test_dir"]
+                        if use_test
+                        else CONTAINER_BASE_PATHS["settings_dir"]
+                )
+                container_output_dir = (
+                        CONTAINER_BASE_PATHS["output_test_dir"]
+                        if use_test
+                        else CONTAINER_BASE_PATHS["output_dir"]
+                )
+
+                # Ensure output directories exist
+                os.makedirs(output_dir, exist_ok=True)
+                os.makedirs(settings_dir, exist_ok=True)
+
+                # Get all frames from storm generator
+                storm_frames = get_storm_frames(
+                        precip_type=PRECIP_TYPE, use_test=use_test
+                )
+
+                if not storm_frames:
+                        print(
+                                f"No files found in {PRECIP_TYPE}. Please run storm_generator.py first."
+                        )
+                else:
+                        print(
+                                f"\nWill process {len(storm_frames)} frames from '{PRECIP_TYPE}' directory"
+                        )
+                        print("-" * 80)
+
+                        # Run mode
+                        # IMPORTANT: Extensive configuration is needed for LISFLOOD to run properly
+                        USE_DOCKER = False  # True: run with Docker, False: run demo simulation
+                        LISFLOOD_IMAGE = "jrce1/lisflood:latest"
+
+                        # Loop through all frames
+                        for idx, rain_file in enumerate(storm_frames, 1):
+                                frame_num = get_frame_number(rain_file)
+                                print(
+                                        f"\n[{idx}/{len(storm_frames)}] Processing Frame {frame_num:04d}..."
+                                )
+                                print(f"    Input: {os.path.basename(rain_file)}")
+
+                                # Create paths for this frame
+                                HOST_PATHS = {
+                                        "base_data_dir": HOST_BASE_PATHS[
+                                                "base_data_dir"
+                                        ],
+                                        "dem": HOST_BASE_PATHS["dem"],
+                                        "roughness": HOST_BASE_PATHS["roughness"],
+                                        "rain": rain_file,
+                                        "settings": os.path.join(
+                                                settings_dir,
+                                                f"settings_frame_{frame_num:04d}.xml",
+                                        ),
+                                        "output_raw": os.path.join(
+                                                output_dir,
+                                                f"flood_depth_raw_{frame_num:04d}.tif",
+                                        ),
+                                        "output_classified": os.path.join(
+                                                output_dir,
+                                                f"flood_classified_{frame_num:04d}.tif",
+                                        ),
+                                }
+
+                                CONTAINER_PATHS = {
+                                        "base_data_dir": CONTAINER_BASE_PATHS[
+                                                "base_data_dir"
+                                        ],
+                                        "dem": CONTAINER_BASE_PATHS["dem"],
+                                        "roughness": CONTAINER_BASE_PATHS["roughness"],
+                                        "rain": os.path.join(
+                                                container_storm_gen_dir,
+                                                PRECIP_TYPE,
+                                                os.path.basename(rain_file),
+                                        ),
+                                        "settings": os.path.join(
+                                                container_settings_dir,
+                                                f"settings_frame_{frame_num:04d}.xml",
+                                        ),
+                                        "output": os.path.join(
+                                                container_output_dir,
+                                                f"flood_depth_raw_{frame_num:04d}.tif",
+                                        ),
+                                }
+
+                                # Run hydraulic model
+                                if USE_DOCKER:
+                                        print("    Running LISFLOOD with Docker...")
+                                        success = run_lisflood_docker(
+                                                HOST_PATHS,
+                                                CONTAINER_PATHS,
+                                                LISFLOOD_IMAGE,
+                                        )
+                                else:
+                                        print(
+                                                "    [DEMO MODE] Creating simulation data..."
+                                        )
+                                        success = demo_simulation(HOST_PATHS)
+
+                                if not success:
+                                        print(f"    ❌ Frame {frame_num:04d} failed!")
+                                        failed_frames += 1
+                                        continue
+
+                                # 4-Level Classification
+                                try:
+                                        reclassify_flood_depth(
+                                                raw_depth_file=HOST_PATHS["output_raw"],
+                                                classified_file=HOST_PATHS[
+                                                        "output_classified"
+                                                ],
+                                                bins=CLASSIFICATION_BINS_METERS,
+                                        )
+                                        print(
+                                                f"    DONE: Frame {frame_num:04d} completed!"
+                                        )
+                                        successful_frames += 1
+                                except Exception as e:
+                                        print(f"    ERROR: Frame {frame_num:04d}: {e}")
+                                        failed_frames += 1
+
+                        # Summary
+                        print("\n" + "=" * 80)
+                        print("STEP 1 COMPLETED: FLOOD SIMULATION")
+                        print("=" * 80)
+                        print(f"Total frames: {len(storm_frames)}")
+                        print(f"Successful: {successful_frames}")
+                        print(f"Failed: {failed_frames}")
+                        print(f"\nResults saved to: {output_dir}")
+                        print("  - Raw flood depth: flood_depth_raw_XXXX.tif")
+                        print("  - Classified: flood_classified_XXXX.tif")
+        else:
+                print("Skipping flood simulation...")
+
+        return successful_frames
+
+
+def extract_flood(successful_frames, use_test=False):
+        """Step 2: Optional flood data extraction"""
+        print("\n" + "-" * 80)
+        print("STEP 2: FLOOD DATA EXTRACTION (OPTIONAL)")
+        print("-" * 80)
+
+        response_flood_csv = (
+                input("\nExtract flood classification data to CSV? (y/n): ")
+                .strip()
+                .lower()
+        )
+
+        if response_flood_csv == "y":
+                if successful_frames > 0:
+                        run_flood_rasterizer(use_test=use_test)
+                else:
+                        print("No successful flood simulations to extract. Skipping...")
+        else:
+                print("Skipping flood data extraction...")
+
+
+def main():
+        print("=" * 80)
+        print("FLOOD SIMULATION PIPELINE")
+        print("=" * 80)
+
+        # Step 0: Storm generation
+        use_test, storm_generated = generate_storm()
+
+        dataset_type = "Test" if use_test else "Train"
+        print(f"\n>>> Pipeline will use: {dataset_type} dataset")
+
+        # Step 1: Flood simulation
+        successful_frames = simulate_flood(use_test=use_test)
+
+        # Step 2: Flood data extraction
+        extract_flood(successful_frames, use_test=use_test)
 
         print("\n" + "=" * 80)
         print("PIPELINE COMPLETED")

@@ -34,7 +34,7 @@ import numpy as np
 import rasterio
 from rasterio.transform import xy
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import argparse
 from multiprocessing import Pool, cpu_count
 from functools import partial
@@ -66,7 +66,9 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 # Default input/output paths
 DEFAULT_INPUT_DIR = str(DATA_DIR / "simulation_output")
+DEFAULT_INPUT_TEST_DIR = str(DATA_DIR / "simulation_output_test")
 DEFAULT_OUTPUT_CSV = str(DATA_DIR / "target_data.csv")
+DEFAULT_OUTPUT_TEST_CSV = str(DATA_DIR / "target_data_test.csv")
 
 # File matching pattern
 DEFAULT_FILE_PATTERN = "flood_classified_*.tif"
@@ -154,27 +156,44 @@ def _extract_frame_worker(
 class FloodTimeSeriesExtractor:
         def __init__(
                 self,
-                input_dir: str = DEFAULT_INPUT_DIR,
-                output_csv: str = DEFAULT_OUTPUT_CSV,
+                input_dir: Optional[str] = None,
+                output_csv: Optional[str] = None,
                 pattern: str = DEFAULT_FILE_PATTERN,
                 sample_rate: int = DEFAULT_SAMPLE_RATE,
                 chunk_size: int = DEFAULT_CHUNK_SIZE,
+                use_test: bool = False,
         ):
                 """
                 Initialize the flood time series extractor.
 
                 Args:
-                        input_dir: Directory containing classified flood GeoTIFF files
-                        output_csv: Output CSV file path
+                        input_dir: Directory containing classified flood GeoTIFF files (None = auto-select based on use_test)
+                        output_csv: Output CSV file path (None = auto-select based on use_test)
                         pattern: File pattern to match (default: flood_classified_*.tif)
                         sample_rate: Spatial sampling rate (1 = all pixels, 2 = every other pixel, etc.)
                         chunk_size: Number of pixels to write at once (adjust based on RAM)
+                        use_test: Whether to use test data directories (default: False for train data)
                 """
+                # Auto-select directories based on use_test flag
+                if input_dir is None:
+                        input_dir = (
+                                DEFAULT_INPUT_TEST_DIR
+                                if use_test
+                                else DEFAULT_INPUT_DIR
+                        )
+                if output_csv is None:
+                        output_csv = (
+                                DEFAULT_OUTPUT_TEST_CSV
+                                if use_test
+                                else DEFAULT_OUTPUT_CSV
+                        )
+
                 self.input_dir = Path(input_dir)
                 self.output_csv = Path(output_csv)
                 self.pattern = pattern
                 self.sample_rate = sample_rate
                 self.chunk_size = chunk_size
+                self.use_test = use_test
 
         def get_frame_files(self) -> List[Tuple[int, Path]]:
                 """Get list of classified flood files sorted by frame number."""
